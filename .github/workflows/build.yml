@@ -1,92 +1,28 @@
-name: Build APK
-
+name: Build Debug APK
 on:
   push:
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-          submodules: recursive
-
-      - name: Detect project type
-        id: detect
-        run: |
-          first() { awk -F/ '{print NF" "$0}' | sort -n | head -n1 | cut -d' ' -f2-; }
-          BS=$(find . -maxdepth 3 -name buildozer.spec -not -path './.git/*' | first)
-          PS=$(find . -maxdepth 3 -name pubspec.yaml -not -path './.git/*' | first)
-          GR=$(find . -maxdepth 3 \( -name gradlew -o -name settings.gradle -o -name settings.gradle.kts \) -not -path './.git/*' | first)
-          if [ -n "$BS" ]; then T=buildozer; F="$BS"
-          elif [ -n "$PS" ]; then T=flutter; F="$PS"
-          elif [ -n "$GR" ]; then T=gradle; F="$GR"
-          else T=none; F=./x
-          fi
-          echo "type=$T" >> "$GITHUB_OUTPUT"
-          echo "dir=$(dirname "$F")" >> "$GITHUB_OUTPUT"
-          echo "Detected: $T in $(dirname "$F")"
-
-      - name: Unknown project
-        if: steps.detect.outputs.type == 'none'
-        run: |
-          echo "::error::No Gradle, Buildozer or Flutter project found. Repo files:"
-          find . -maxdepth 2 -not -path './.git*' | head -n 60
-          exit 1
-
-      - uses: actions/setup-java@v4
-        if: steps.detect.outputs.type == 'gradle' || steps.detect.outputs.type == 'flutter'
-        with:
-          distribution: temurin
-          java-version: 17
-
-      # Gradle (Android Studio project)
-      - uses: gradle/actions/setup-gradle@v4
-        if: steps.detect.outputs.type == 'gradle'
-        with:
-          gradle-version: 8.7
-
-      - name: Build with Gradle
-        if: steps.detect.outputs.type == 'gradle'
-        working-directory: ${{ steps.detect.outputs.dir }}
-        run: |
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew assembleDebug --stacktrace
-          else
-            gradle assembleDebug --stacktrace
-          fi
-
-      # Flutter
-      - uses: subosito/flutter-action@v2
-        if: steps.detect.outputs.type == 'flutter'
-        with:
-          channel: stable
-
-      - name: Build with Flutter
-        if: steps.detect.outputs.type == 'flutter'
-        working-directory: ${{ steps.detect.outputs.dir }}
-        run: |
-          flutter pub get
-          flutter build apk --release
-
-      # Python / Kivy (Buildozer)
-      - uses: ArtemSBulgakov/buildozer-action@v1
-        if: steps.detect.outputs.type == 'buildozer'
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
-          repository_root: .
-          working_directory: ${{ steps.detect.outputs.dir }}
-
-      - uses: actions/upload-artifact@v4
-        if: steps.detect.outputs.type != 'none'
-        with:
-          name: APK
-          if-no-files-found: error
-          path: |
-            **/build/outputs/apk/**/*.apk
-            **/build/app/outputs/flutter-apk/*.apk
-            **/bin/*.apk
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    - name: Create debug keystore
+      run: |
+        keytool -genkey -v -keystore debug.keystore -storepass android \
+          -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+          -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+    - uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: 9.3.1
+    - run: gradle assembleDebug --no-daemon
+    - uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
