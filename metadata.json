@@ -1,0 +1,6 @@
+{
+  "name": "Floating Viewer",
+  "description": "Floating overlay window for viewing photos, playing videos, and managing archive files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

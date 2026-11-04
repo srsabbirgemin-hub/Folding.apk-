@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Floating Viewer</string>
+    <string name="notification_channel_name">Floating Window Service</string>
+    <string name="notification_channel_desc">Active floating window overlay controller</string>
+</resources>
